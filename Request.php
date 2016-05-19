@@ -113,8 +113,8 @@ class Request {
     public static function error400($msg) {
         self::error("HTTP/1.1 400 Bad Request", $msg);
     }
-    public static function error401($type, $realm, $msg) {
-        header("WWW-Authenticate: ".$type." realm=\"".$realm."\"");
+    public static function error401($type, $realm, $msg, $nonce = "") {
+        header("WWW-Authenticate: ".$type." realm=\"".$realm."\"".($nonce ? ",qop=\"auth\",nonce=\"".$nonce."\",opaque=\"".md5($realm)."\"" : ""));
         self::error("HTTP/1.1 401 Not Authorized", $msg);
     }
     public static function error404() {
@@ -255,6 +255,52 @@ class Request {
             $items[] = $item;
         }
         return $items;
+    }
+    public static function basicAuth($realm, $validate) {
+        if (isset($_SERVER["PHP_AUTH_USER"])) {
+            $login = $_SERVER["PHP_AUTH_USER"];
+            if ($validate($login, $_SERVER["PHP_AUTH_PW"])) {
+                return $login;
+            }
+        }
+
+        self::error401("Basic", $realm, "You need to enter a valid username and password.");
+    }
+    public static function digestAuth($realm, $nonce, $credentials) {
+        $auth = false;
+
+        // Get the digest string from http header
+        if (isset($_SERVER["PHP_AUTH_DIGEST"])) {
+            // mod_php
+            $digestStr = $_SERVER["PHP_AUTH_DIGEST"];
+        } elseif (isset($_SERVER["HTTP_AUTHENTICATION"]) && strpos(strtolower($_SERVER["HTTP_AUTHENTICATION"]), "digest") === 0) {
+            // most other servers
+            $digestStr = substr($_SERVER["HTTP_AUTHORIZATION"], 7);
+        }
+
+        if (!is_null($digestStr)) {
+            // Extract digest elements from the string
+            $digest = array();
+            preg_match_all('@(\w+)=(?:(?:")([^"]+)"|([^\s,$]+))@', $digestStr, $matches, PREG_SET_ORDER);
+            foreach ($matches as $m) {
+                $digest[$m[1]] = $m[2] ? $m[2] : $m[3];
+            }
+
+            // If provided digest is complete
+            if (isset($digest["uri"]) && isset($digest["nonce"]) && isset($digest["nc"]) && isset($digest["cnonce"]) && isset($digest["qop"]) && isset($digest["response"])) {
+                // Compare user response with each of valid responses
+                foreach ($credentials as $login => $password) {
+                    $A1 = md5("{$login}:{$realm}:{$password}");
+                    $A2 = md5("{$_SERVER["REQUEST_METHOD"]}:{$digest["uri"]}");
+                    $response = md5("{$A1}:{$digest["nonce"]}:{$digest["nc"]}:{$digest["cnonce"]}:{$digest["qop"]}:{$A2}");
+                    if ($response == $digest["response"]) {
+                        return $login;
+                    }
+                }
+            }
+        }
+
+        self::error401("Digest", $realm, "You need to enter a valid username and password.", $nonce);
     }
 }
 

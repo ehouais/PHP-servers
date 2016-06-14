@@ -214,6 +214,7 @@ class Request {
     public static function sendAsJson($data) {
         self::sendJson(self::toJson($data));
     }
+    // Filter $list, only keeping items matching query parameters ?propname1=value1&propname2=value2&...
     public static function filter($list, $propnames) {
         foreach($list as $id => $data) {
             foreach($propnames as $name) {
@@ -225,6 +226,7 @@ class Request {
         }
         return $list;
     }
+    // Filter $list, only keeping item properties listed in query parameters ?props=propname1,propname2,...
     public static function filterProperties($list) {
         if (isset($_GET["props"])) {
             $props = explode(",", $_GET["props"]);

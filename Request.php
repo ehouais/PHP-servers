@@ -225,21 +225,18 @@ class Request {
         }
         return $list;
     }
-    public static function filterProperties($list, $default) {
-        $items = array();
-        $props = isset($_GET["props"]) ? explode(",", $_GET["props"]) : null;
-        foreach($list as $id => $data) {
-            if ($props) {
-                $item = array();
+    public static function filterProperties($list) {
+        if (isset($_GET["props"])) {
+            $props = explode(",", $_GET["props"]);
+            foreach($list as $key => $item) {
+                $fitem = array();
                 foreach($props as $name) {
-                    if (isset($data[$name])) $item[$name] = $data[$name];
+                    if (isset($item[$name])) $fitem[$name] = $item[$name];
                 }
-            } else {
-                $item = $default($id);
+                $list[$key] = $fitem;
             }
-            $items[] = $item;
         }
-        return $items;
+        return $list;
     }
     public static function basicAuth($realm, $validate) {
         if (isset($_SERVER["PHP_AUTH_USER"])) {

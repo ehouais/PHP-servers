@@ -1,10 +1,5 @@
 <?php
 class Request {
-    private static $method;
-    private static $accept;
-    private static $body;
-    private static $root;
-    private static $path;
     // Replaces "\uxxxx" sequences by true UTF-8 multibyte characters
     private static function unicodeSeqtoMb($str) {
         return html_entity_decode(preg_replace("/\\\u([0-9a-f]{4})/", "&#x\\1;", $str), ENT_NOQUOTES, 'UTF-8');
@@ -70,40 +65,24 @@ class Request {
         return $result;
     }
 
-    // Public functions -------------------------------------------------------
-
-    public static function init() {
-        // HTTP method
-        self::$method = strtoupper($_SERVER["REQUEST_METHOD"]);
-        // HTTP accept
-        self::$accept = "any";
-        if (isset($_SERVER["HTTP_ACCEPT"])) {
-            if (strpos($_SERVER["HTTP_ACCEPT"], "application/json") !== false) {
-                self::$accept = "json";
-            } elseif (strpos($_SERVER["HTTP_ACCEPT"], "*/*") !== false || strpos($_SERVER["HTTP_ACCEPT"], "text/html") !== false) {
-                self::$accept = "html";
-            }
-        }
-        // HTTP body
-        self::$body = file_get_contents("php://input");
-        // URL root
-        self::$root = "http://".$_SERVER["SERVER_NAME"];
-        // Resource path
-        $parts = explode("?", substr($_SERVER["REQUEST_URI"], 1));
-        self::$path = $parts[0];
-        if (substr(self::$path, -1) == "/") self::$path = substr(self::$path, 0, -1);
-    }
     public static function method() {
-        return self::$method;
+        return strtoupper($_SERVER["REQUEST_METHOD"]);
     }
     public static function accept() {
-        return self::$accept;
+        if (isset($_SERVER["HTTP_ACCEPT"])) {
+            if (strpos($_SERVER["HTTP_ACCEPT"], "application/json") !== false) {
+                return "json";
+            } elseif (strpos($_SERVER["HTTP_ACCEPT"], "*/*") !== false || strpos($_SERVER["HTTP_ACCEPT"], "text/html") !== false) {
+                return "html";
+            }
+        }
+        return "any";
     }
     public static function body() {
-        return self::$body;
+        return file_get_contents("php://input");
     }
     public static function root() {
-        return self::$root;
+        return "http://".$_SERVER["SERVER_NAME"];
     }
     public static function error($header, $msg) {
         header($header);
@@ -135,7 +114,7 @@ class Request {
                 }
             }
         }
-        if (self::$method == "OPTIONS") {
+        if (self::method() == "OPTIONS") {
             if (isset($_SERVER["HTTP_ACCESS_CONTROL_REQUEST_METHOD"]))
                 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 
@@ -155,16 +134,19 @@ class Request {
         }
     }
     public static function bind($pattern, $handlers, $context = null) {
+        $method = self::method();
+        $path = parse_url(substr($_SERVER["REQUEST_URI"], 1), PHP_URL_PATH);
+
         if (!is_array($handlers)) {
             $handlers = array("GET" => $handlers);
         }
         $matches = null;
-        if (($pattern == "" && self::$path == "") || ($pattern && preg_match($pattern, self::$path, $matches))) {
+        if (($pattern == "" && $path == "") || ($pattern && preg_match($pattern, $path, $matches))) {
             $found = null;
 
             foreach ($handlers as $methods => $handler) {
                 $methods = explode(",", strtoupper(str_replace(" ", "", $methods)));
-                if (in_array(self::$method, $methods) || (self::$method != "OPTIONS" && in_array("*", $methods))) {
+                if (in_array($method, $methods) || ($method != "OPTIONS" && in_array("*", $methods))) {
                     $found = $handler;
                     break;
                 }
@@ -185,7 +167,7 @@ class Request {
                     self::error500($e->getMessage());
                 }
                 exit;
-            } elseif (self::$method != "OPTIONS") {
+            } elseif ($method != "OPTIONS") {
                 self::error("HTTP/1.1 405 Method Not Allowed", "");
             }
         }
@@ -219,7 +201,7 @@ class Request {
     public static function sendJson($json) {
         header("Vary: Accept", false);
         $json = self::unicodeSeqtoMb($json);
-        if (self::$accept == "html") {
+        if (self::accept() == "html") {
             header("Content-Type: text/html; charset=utf-8");
             print "<meta charset=\"utf-8\">";
             print "<pre>".preg_replace("/\"(https?:\/\/[^\"]+)\"/", "<a href=\"$1\">$1</a>", self::prettifyJson($json))."</pre>";
@@ -305,6 +287,4 @@ class Request {
         self::error401("Digest", $realm, "You need to enter a valid username and password.", $nonce);
     }
 }
-
-Request::init();
 ?>

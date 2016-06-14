@@ -160,19 +160,21 @@ class Request {
         }
         $matches = null;
         if (($pattern == "" && self::$path == "") || ($pattern && preg_match($pattern, self::$path, $matches))) {
-            if (isset($handlers[self::$method])) {
-                $handler = $handlers[self::$method];
-            } elseif (self::$method != "OPTIONS" && isset($handlers["*"])) {
-                $handler = $handlers["*"];
-            } else {
-                $handler = null;
+            $found = null;
+
+            foreach ($handlers as $methods => $handler) {
+                $methods = explode(",", strtoupper(str_replace(" ", "", $methods)));
+                if (in_array(self::$method, $methods) || (self::$method != "OPTIONS" && in_array("*", $methods))) {
+                    $found = $handler;
+                    break;
+                }
             }
 
-            if ($handler) {
+            if ($found) {
                 try {
                     ob_start();
-                    if (is_callable($handler)) {
-                        $handler($matches);
+                    if (is_callable($found)) {
+                        $found($matches);
                     } else {
                         if ($context) extract($context);
                         include $handler;

@@ -9,9 +9,10 @@ class Request {
         if (defined('JSON_UNESCAPED_SLASHES')) return json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         // else first JSON_UNESCAPED_SLASHES polyfill...
         $data = str_replace("\/", "/", json_encode($data));
-        /// ...then JSON_UNESCAPED_UNICODE polyfill
+        // ...then JSON_UNESCAPED_UNICODE polyfill
         return self::unicodeSeqtoMb($data);
     }
+    // Function picked from http://stackoverflow.com/questions/6054033/pretty-printing-json-with-php
     private static function prettifyJson($json) {
         $result = '';
         $level = 0;

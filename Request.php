@@ -136,6 +136,7 @@ class Request {
     public static function bind($pattern, $handlers, $context = null) {
         $method = self::method();
         $path = parse_url(substr($_SERVER["REQUEST_URI"], 1), PHP_URL_PATH);
+        if (substr($path, -1) == "/") $path = substr($path, 0, -1);
 
         if (!is_array($handlers)) {
             $handlers = array("GET" => $handlers);

@@ -203,9 +203,11 @@ class Request {
         header("Vary: Accept", false);
         $json = self::unicodeSeqtoMb($json);
         if (self::accept() == "html") {
+            $json = self::prettifyJson($json);
+            $json = str_replace(array("<", ">"), array("&lt;", "&gt;"), $json);
             header("Content-Type: text/html; charset=utf-8");
             print "<meta charset=\"utf-8\">";
-            print "<pre>".preg_replace("/\"(https?:\/\/[^\"]+)\"/", "<a href=\"$1\">$1</a>", self::prettifyJson($json))."</pre>";
+            print "<pre>".preg_replace("/\"(https?:\/\/[^\"]+)\"/", "<a href=\"$1\">$1</a>", $json)."</pre>";
         } else {
             header("Content-Type: application/json; charset=utf-8");
             print $json;

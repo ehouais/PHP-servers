@@ -1,0 +1,222 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/sjcl/1.0.0/sjcl.min.js"></script>
+        <link href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.0/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            .template {
+                display: none;
+            }
+            .list-group-item {
+                padding: 2px 6px;
+                font-family: 'courier new';
+            }
+            #reset {
+                display: none;
+            }
+            #value {
+                font-family: 'courier new';
+                font-size: 12px;
+                white-space: pre;
+                resize: none;
+                word-wrap: normal;
+            }
+            #liste a button {
+                margin-top: 2px;
+                height: 16px;
+                display: none;
+            }
+            #liste a:hover button {
+                display: block;
+            }
+            #liste a button .glyphicon {
+                top: 0;
+            }
+            #submit, #cipher, #decipher {
+                margin-right: 4px;
+            }
+        </style>
+        <script>
+            $(function() {
+                var root = window.location.href,
+                    $id = $('#id'),
+                    $dataUri = $('#dataurl'),
+                    $val = $('#value'),
+                    $submit = $('#submit'),
+                    $cipher = $('#cipher'),
+                    $decipher = $('#decipher'),
+                    $reset = $('#reset'),
+                    $url = $('#id_group .url').on('click', function() {
+                        window.prompt('URL', root+$id.val());
+                    }),
+                    setId = function(url) {
+                        $id.val(url.substr(root.length));
+                        $url.prop('disabled', false);
+                    };
+
+                $submit.on('click', function() {
+                    var id = $id.val(),
+                        val = $val.val();
+                    if (id) {
+                        $.ajax({type: 'PUT', url: root+id, contentType: 'text/plain', data: val}).done(function() {
+                            updateList();
+                        });
+                    } else {
+                        $.post(root, val).done(function(data, status, request) {
+                            setId(request.getResponseHeader('Content-Location'));
+                            updateList();
+                        });
+                    }
+                });
+
+                var ciphered = function(flag) {
+                    $val.prop('disabled', flag);
+                    $cipher[flag ? 'hide' : 'show']();
+                    $decipher[flag ? 'show' : 'hide']();
+                };
+
+                $cipher.on('click', function() {
+                    $val.val(sjcl.encrypt(prompt('Enter password'), $val.val(), {ks: 256}));
+                    updateDataUri();
+                    ciphered(true);
+                });
+
+                $decipher.on('click', function() {
+                    try {
+                        data = sjcl.decrypt(prompt('Enter password'), $val.val());
+                    } catch(e) {
+                        alert(e.message);
+                        return;
+                    }
+                    $val.val(data);
+                    updateDataUri();
+                    ciphered(false);
+                });
+
+                var reset = function() {
+                        $id.val('');
+                        $dataUri.val('');
+                        $val.val('');
+                        ciphered(false);
+                        $reset.hide();
+                        $url.prop('disabled', true);
+                    };
+
+                $reset.on('click', reset);
+
+                var updateDataUri = function() {
+                        var val = $val.val(),
+                            type;
+                        try {
+                            JSON.parse(val);
+                            type = 'application/json';
+                        } catch(e) {
+                            type = 'text/plain';
+                        } finally {
+                            $dataUri.val('data:'+type+','+escape(val));
+                        }
+                    };
+                $val.on('keyup change', updateDataUri);
+
+                var $klst = $('#liste .list-group'),
+                    $ktpl = $klst.find('.template').remove().removeClass('template'),
+                    updateList = function() {
+                        $.getJSON(root).done(function(urls) {
+                            $klst.empty();
+                            urls.forEach(function(url) {
+                                $ktpl.clone().appendTo($klst).append(url.substr(root.length)).attr('href', url).on('click', function(e) {
+                                    $.get(url).done(function(data) {
+                                        var isCiphered = false;
+
+                                        setId(url);
+                                        $val.val(data);
+                                        updateDataUri();
+                                        // detect if data is a SJCL ciphered structure
+                                        try {
+                                            var obj = JSON.parse(data);
+                                            if (obj.iv && obj.v && obj.iter && obj.ks && obj.ts && obj.mode && obj.cipher && obj.salt && obj.ct) {
+                                                // this is SJCL ciphered data
+                                                isCiphered = true;
+                                            }
+                                        } catch(e) {
+                                            // hide non significant error that only means that data is not JSON (and thus, not ciphered)
+                                        }
+                                        ciphered(isCiphered);
+                                        $reset.show();
+                                    });
+                                    e.preventDefault();
+                                }).find('button').on('click', function(e) {
+                                    if (confirm('Are you sure ?')) {
+                                        $.ajax({type: 'DELETE', url: url}).done(function() {
+                                            updateList();
+                                            reset();
+                                        });
+                                    }
+                                    return false;
+                                });
+                            });
+                        });
+                    };
+
+                $('#id_group .input-group-addon').text(root);
+                updateList();
+                reset();
+            });
+        </script>
+    </head>
+    <body>
+        <div class="container">
+            <div class="page-header">
+                <h1>Simple REST data storage</h1>
+            </div>
+            <div class="row">
+                <div class="col-lg-9">
+                    <form class="form-horizontal" role="form">
+                        <div class="form-group">
+                            <label for="url" class="col-lg-2 control-label">URL</label>
+                            <div class="col-lg-10">
+                                <div class="input-group" id="id_group">
+                                    <span class="input-group-addon"></span>
+                                    <input type="text" class="form-control" id="id" placeholder="Id">
+                                    <span class="input-group-btn">
+                                        <button class="btn btn-default url" type="button" disabled="disabled">URL</button>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="dataurl" class="col-lg-2 control-label">data: URL</label>
+                            <div class="col-lg-10">
+                                <input type="text" class="form-control" id="dataurl" disabled>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="value" class="col-lg-2 control-label">Value</label>
+                            <div class="col-lg-10">
+                                <textarea class="form-control" id="value" rows="20" placeholder="Enter value here"></textarea>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="col-lg-offset-2 col-lg-10">
+                                <button id="submit" type="button" class="btn btn-success pull-left">Submit</button>
+                                <button id="cipher" type="button" class="btn btn-default pull-left">Cipher</button>
+                                <button id="decipher" type="button" class="btn btn-default pull-left">Decipher</button>
+                                <button id="reset" type="button" class="btn btn-default pull-right">Reset</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="col-lg-3">
+                    <div id="liste">
+                        <div class="list-group">
+                            <a href="" class="list-group-item template">
+                                <button type="button" class="btn btn-danger btn-xs pull-right"><span class="glyphicon glyphicon-remove"></span></button>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

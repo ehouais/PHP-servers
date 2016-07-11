@@ -51,9 +51,12 @@
                         window.prompt('URL', root+$id.val());
                     }),
                     setId = function(url) {
-                        $id.val(url.substr(root.length));
+                        $id.val(url.substr(root.length+1));
                         $url.prop('disabled', false);
                     };
+
+                // Ignore trailing slash, if any
+                if (root.substr(-1) == '/') root = root.substr(0, root.length-1);
 
                 $submit.on('click', function() {
                     var id = $id.val(),
@@ -125,7 +128,7 @@
                         $.getJSON(root).done(function(urls) {
                             $klst.empty();
                             urls.forEach(function(url) {
-                                $ktpl.clone().appendTo($klst).append(url.substr(root.length)).attr('href', url).on('click', function(e) {
+                                $ktpl.clone().appendTo($klst).append(url.substr(root.length+1)).attr('href', url).on('click', function(e) {
                                     $.get(url).done(function(data) {
                                         var isCiphered = false;
 

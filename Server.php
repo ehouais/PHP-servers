@@ -105,7 +105,7 @@ abstract class Server implements iServer {
         }
 
         // Remove urlroot trailing slash, if any
-        $urlroot = substr(self::$urlroot, -1) == "/" ? substr(self::$urlroot, 0, -1) : $urlroot;
+        $urlroot = substr(self::$urlroot, -1) == "/" ? substr(self::$urlroot, 0, -1) : self::$urlroot;
 
         // path = uri - urlroot
         $path = $urlroot ? str_replace($urlroot, "", $uri) : $_SERVER["REQUEST_URI"];

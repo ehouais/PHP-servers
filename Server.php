@@ -89,14 +89,26 @@ abstract class Server implements iServer {
         return file_get_contents("php://input");
     }
     protected static function setRoot($urlroot) {
-        self::$urlroot = $urlroot;
+        // Remove urlroot trailing slash, if any
+        self::$urlroot = substr($urlroot, -1) == "/" ? substr($urlroot, 0, -1) : $urlroot;
     }
     protected static function root() {
         return self::$urlroot;
     }
     protected static function path() {
-        $url = parse_url($_SERVER["SCRIPT_URI"]);
-        $path = self::$urlroot ? str_replace(self::$urlroot, "", $url["scheme"]."://".$url["host"].$url["path"]) : $url["path"];
+        // Get full request URI
+        // I still don't know why some installs generate the $_SERVER["SCRIPT_URI"] entry and others don't...
+        if (isset($_SERVER["SCRIPT_URI"])) {
+            $uri = parse_url($_SERVER["SCRIPT_URI"]);
+            $uri = $uri["scheme"]."://".$uri["host"].$uri["path"];
+        } else {
+            $uri = $_SERVER["REQUEST_SCHEME"]."://".$_SERVER["HTTP_HOST"].($_SERVER["SERVER_PORT"] != "80" ? $_SERVER["SERVER_PORT"] : "").$_SERVER["REQUEST_URI"];
+        }
+
+        // path = uri - urlroot
+        $path = self::$urlroot ? str_replace(self::$urlroot, "", $uri) : $_SERVER["REQUEST_URI"];
+
+        // Remove trailing slash, if any
         if (substr($path, -1) == "/") $path = substr($path, 0, -1);
 
         return $path;
@@ -152,7 +164,9 @@ abstract class Server implements iServer {
     }
     protected static function ifMatch($pattern, $handlers, $context = null) {
         $method = self::method();
-        $path = self::path();
+
+        // Ignore initial slash in path
+        $path = substr(self::path(), 1);
 
         if (!is_array($handlers)) {
             $handlers = array("GET" => $handlers);

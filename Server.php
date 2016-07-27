@@ -89,7 +89,8 @@ abstract class Server implements iServer {
         return file_get_contents("php://input");
     }
     protected static function setRoot($urlroot) {
-        self::$urlroot = $urlroot;
+        // Remove urlroot trailing slash, if any
+        self::$urlroot = substr($urlroot, -1) == "/" ? substr($urlroot, 0, -1) : $urlroot;
     }
     protected static function root() {
         return self::$urlroot;
@@ -104,11 +105,8 @@ abstract class Server implements iServer {
             $uri = $_SERVER["REQUEST_SCHEME"]."://".$_SERVER["HTTP_HOST"].($_SERVER["SERVER_PORT"] != "80" ? $_SERVER["SERVER_PORT"] : "").$_SERVER["REQUEST_URI"];
         }
 
-        // Remove urlroot trailing slash, if any
-        $urlroot = substr(self::$urlroot, -1) == "/" ? substr(self::$urlroot, 0, -1) : self::$urlroot;
-
         // path = uri - urlroot
-        $path = $urlroot ? str_replace($urlroot, "", $uri) : $_SERVER["REQUEST_URI"];
+        $path = self::$urlroot ? str_replace(self::$urlroot, "", $uri) : $_SERVER["REQUEST_URI"];
 
         // Remove trailing slash, if any
         if (substr($path, -1) == "/") $path = substr($path, 0, -1);

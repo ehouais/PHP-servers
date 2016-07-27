@@ -20,7 +20,7 @@ class KeyValueServer extends Server {
         return self::$datadir."/".$id."-".md5($id).".val";
     }
     private static function uri($id) {
-        return self::root().str_replace("_", "/", $id);
+        return self::root()."/".str_replace("_", "/", $id);
     }
     private static function writeData($id, $data) {
         if (file_put_contents(self::filepath($id), $data) === false) {

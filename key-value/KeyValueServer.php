@@ -9,7 +9,6 @@ $params = array(
     "accounts" => array(                    // list of valid accounts for digest authentication (optional)
         "login" => "password",
     ),
-    "webapp" => "path/to/webapp",           // path to web page that will be returned if requesting HTML from root
 );
 */
 class KeyValueServer extends Server {
@@ -57,23 +56,16 @@ class KeyValueServer extends Server {
 
         self::ifMatch("", array(
             "GET" => function() use ($params) {
-                header("Vary: Accept");
-                if (self::accept() == "json") {
-                    $uris = array();
-                    if ($handle = opendir(self::$datadir)) {
-                        while (($entry = readdir($handle)) !== false) {
-                            if (substr($entry, -4) == ".val") {
-                                $uris[] = self::uri(substr($entry, 0, strrpos($entry, "-")));
-                            }
+                $uris = array();
+                if ($handle = opendir(self::$datadir)) {
+                    while (($entry = readdir($handle)) !== false) {
+                        if (substr($entry, -4) == ".val") {
+                            $uris[] = self::uri(substr($entry, 0, strrpos($entry, "-")));
                         }
-                        closedir($handle);
                     }
-                    self::sendAsJson($uris);
-                } elseif (isset($params["webapp"])) {
-                    // GUI to create new private values
-                    header("Content-Type: text/html");
-                    readfile($params["webapp"]);
+                    closedir($handle);
                 }
+                self::sendAsJson($uris);
             },
             "POST" => function() {
                 $id = uniqid();

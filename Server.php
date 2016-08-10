@@ -79,7 +79,7 @@ abstract class Server implements iServer {
         if (isset($_SERVER["HTTP_ACCEPT"])) {
             if (strpos($_SERVER["HTTP_ACCEPT"], "application/json") !== false) {
                 return "json";
-            } elseif (strpos($_SERVER["HTTP_ACCEPT"], "*/*") !== false || strpos($_SERVER["HTTP_ACCEPT"], "text/html") !== false) {
+            } elseif (strpos($_SERVER["HTTP_ACCEPT"], "text/html") !== false) {
                 return "html";
             }
         }

@@ -60,12 +60,14 @@ class KeyValueServer extends Server {
                 if ($handle = opendir(self::$datadir)) {
                     while (($entry = readdir($handle)) !== false) {
                         if (substr($entry, -4) == ".val") {
-                            $uris[] = self::uri(substr($entry, 0, strrpos($entry, "-")));
+                            $uri = self::uri(substr($entry, 0, strrpos($entry, "-")));
+                            $uris[$uri] = filemtime(self::$datadir."/".$entry);
                         }
                     }
                     closedir($handle);
+                    arsort($uris);
                 }
-                self::sendAsJson($uris);
+                self::sendAsJson(array_keys($uris));
             },
             "POST" => function() {
                 $id = uniqid();

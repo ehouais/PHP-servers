@@ -199,6 +199,12 @@ abstract class Server implements iServer {
             }
         }
     }
+    protected static function sendFile($filepath) {
+        $finfo = finfo_open(FILEINFO_MIME);
+        header("Content-type: ".finfo_file($finfo, $filepath));
+        finfo_close($finfo);
+        readfile($filepath);
+    }
     protected static function sendJson($json) {
         header("Vary: Accept", false);
         $json = self::unicodeSeqtoMb($json);

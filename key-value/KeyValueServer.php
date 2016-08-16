@@ -11,7 +11,7 @@ $params = array(
     ),
 );
 */
-class KeyValueServer extends Server {
+class KeyValueServer extends HttpServer {
     private static $datadir;
 
     private static function filepath($id) {
@@ -42,7 +42,7 @@ class KeyValueServer extends Server {
         });
     }
 
-    public static function run($params) {
+    public static function execute($params) {
         self::setRoot($params["urlroot"]);
         self::$datadir = $params["datadir"];
 
@@ -68,6 +68,7 @@ class KeyValueServer extends Server {
                     arsort($uris);
                 }
                 self::sendAsJson(array_keys($uris));
+                return true;
             },
             "POST" => function() {
                 $id = uniqid();
@@ -78,24 +79,27 @@ class KeyValueServer extends Server {
                 header("Access-Control-Expose-Headers: location, content-location");
                 header("Location: ".$uri);
                 header("Content-Location: ".$uri);
+                return true;
             }
-        ));
+        ))
 
-        self::ifMatch("@^(.+)@i", array(
-            "GET" => function($matches) { self::getOrHead($matches[1], true); },
-            "HEAD" => function($matches) { self::getOrHead($matches[1], false); },
+        || self::ifMatch("@^(.+)@i", array(
+            "GET" => function($matches) { self::getOrHead($matches[1], true); return true; },
+            "HEAD" => function($matches) { self::getOrHead($matches[1], false); return true; },
             "PUT" => function($matches) {
                 self::writeData($matches[1], self::body());
                 header("HTTP/1.1 204 No Content");
+                return true;
             },
             "DELETE" => function($matches) {
                 $filepath = self::checkFile($matches[1]);
                 unlink($filepath);
                 header("HTTP/1.1 204 No Content");
+                return true;
             }
-        ));
+        ))
 
-        self::error404();
+        || self::error404();
     }
 }
 ?>

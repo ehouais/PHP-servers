@@ -96,17 +96,13 @@ abstract class Server implements iServer {
         return self::$urlroot;
     }
     protected static function path() {
-        // Get full request URI
+        // Parse full request URI
         // I still don't know why some installs generate the $_SERVER["SCRIPT_URI"] entry and others don't...
-        if (isset($_SERVER["SCRIPT_URI"])) {
-            $uri = parse_url($_SERVER["SCRIPT_URI"]);
-            $uri = $uri["scheme"]."://".$uri["host"].$uri["path"];
-        } else {
-            $uri = $_SERVER["REQUEST_SCHEME"]."://".$_SERVER["HTTP_HOST"].($_SERVER["SERVER_PORT"] != "80" ? $_SERVER["SERVER_PORT"] : "").$_SERVER["REQUEST_URI"];
-        }
+        $root = $_SERVER["REQUEST_SCHEME"]."://".$_SERVER["HTTP_HOST"].($_SERVER["SERVER_PORT"] != "80" ? $_SERVER["SERVER_PORT"] : "");
+        $uri = parse_url($root.$_SERVER["REQUEST_URI"]);
 
         // path = uri - urlroot
-        $path = self::$urlroot ? str_replace(self::$urlroot, "", $uri) : $_SERVER["REQUEST_URI"];
+        $path = self::$urlroot ? str_replace(self::$urlroot, "", $root.$uri["path"]) : $uri["path"];
 
         // Remove trailing slash, if any
         if (substr($path, -1) == "/") $path = substr($path, 0, -1);

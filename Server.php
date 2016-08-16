@@ -3,7 +3,13 @@ interface iServer {
     static function run($params);
 }
 
-abstract class Server implements iServer {
+class HttpException extends Exception {
+    public function __construct($message, $code = 500, Exception $previous = null) {
+        parent::__construct($message, $code, $previous);
+    }
+}
+
+abstract class HttpServer {
     private static $urlroot;
 
     // Replaces "\uxxxx" sequences by true UTF-8 multibyte characters
@@ -109,23 +115,24 @@ abstract class Server implements iServer {
 
         return $path;
     }
-    protected static function error($header, $msg) {
-        header($header);
-        print $msg;
-        exit;
+    protected static function error($code, $msg) {
+        throw new HttpException($msg, $code);
     }
-    protected static function error400($msg) {
-        self::error("HTTP/1.1 400 Bad Request", $msg);
+    protected static function error400($msg = "") {
+        self::error(400, $msg);
     }
-    protected static function error401($type, $realm, $msg, $nonce = "") {
+    protected static function error401($type, $realm, $msg = "", $nonce = "") {
         header("WWW-Authenticate: ".$type." realm=\"".$realm."\"".($nonce ? ",qop=\"auth\",nonce=\"".$nonce."\",opaque=\"".md5($realm)."\"" : ""));
-        self::error("HTTP/1.1 401 Not Authorized", $msg);
+        self::error(401, $msg);
     }
     protected static function error404() {
-        self::error("HTTP/1.1 404 Not Found", "");
+        self::error(404, "");
     }
-    protected static function error500($msg) {
-        self::error("HTTP/1.1 500 Internal Server Error", $msg);
+    protected static function error405() {
+        self::error(405, "");
+    }
+    protected static function error500($msg = "") {
+        self::error(500, $msg);
     }
     protected static function cors($allowed) {
         if (isset($_SERVER["HTTP_ORIGIN"])) {
@@ -180,22 +187,12 @@ abstract class Server implements iServer {
             }
 
             if ($found) {
-                try {
-                    ob_start();
-                    if (is_callable($found)) {
-                        $found($matches);
-                    } else {
-                        if ($context) extract($context);
-                        include $handler;
-                    }
-                    ob_end_flush();
-                } catch (Exception $e) {
-                    ob_end_clean();
-                    self::error500($e->getMessage());
+                if (is_callable($found)) {
+                    $found($matches);
+                } else {
+                    if ($context) extract($context);
+                    include $found;
                 }
-                exit;
-            } elseif ($method != "OPTIONS") {
-                self::error("HTTP/1.1 405 Method Not Allowed", "");
             }
         }
     }
@@ -267,6 +264,30 @@ abstract class Server implements iServer {
         }
 
         self::error401("Digest", $realm, "You need to enter a valid username and password.", $nonce);
+    }
+
+    private static function sendError($code, $msg) {
+        switch($code) {
+        case 400: header("HTTP/1.1 400 Bad Request"); break;
+        case 401: header("HTTP/1.1 401 Not Authorized"); break;
+        case 404: header("HTTP/1.1 404 Not Found"); break;
+        case 405: header("HTTP/1.1 405 Method Not Allowed"); break;
+        case 500: header("HTTP/1.1 500 Internal Server Error"); break;
+        }
+        print $msg;
+    }
+    final public static function run($params) {
+        try {
+            ob_start();
+            static::execute($params);
+            ob_end_flush();
+        } catch (HttpException $e) {
+            ob_end_clean();
+            self::sendError($e->getCode(), $e->getMessage());
+        } catch (Exception $e) {
+            ob_end_clean();
+            self::sendError(500);
+        }
     }
 }
 ?>

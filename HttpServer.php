@@ -3,7 +3,13 @@ interface iServer {
     static function run($params);
 }
 
-abstract class Server implements iServer {
+class HttpException extends Exception {
+    public function __construct($message, $code = 500, Exception $previous = null) {
+        parent::__construct($message, $code, $previous);
+    }
+}
+
+abstract class HttpServer {
     private static $urlroot;
 
     // Replaces "\uxxxx" sequences by true UTF-8 multibyte characters
@@ -79,7 +85,7 @@ abstract class Server implements iServer {
         if (isset($_SERVER["HTTP_ACCEPT"])) {
             if (strpos($_SERVER["HTTP_ACCEPT"], "application/json") !== false) {
                 return "json";
-            } elseif (strpos($_SERVER["HTTP_ACCEPT"], "*/*") !== false || strpos($_SERVER["HTTP_ACCEPT"], "text/html") !== false) {
+            } elseif (strpos($_SERVER["HTTP_ACCEPT"], "text/html") !== false) {
                 return "html";
             }
         }
@@ -96,40 +102,37 @@ abstract class Server implements iServer {
         return self::$urlroot;
     }
     protected static function path() {
-        // Get full request URI
+        // Parse full request URI
         // I still don't know why some installs generate the $_SERVER["SCRIPT_URI"] entry and others don't...
-        if (isset($_SERVER["SCRIPT_URI"])) {
-            $uri = parse_url($_SERVER["SCRIPT_URI"]);
-            $uri = $uri["scheme"]."://".$uri["host"].$uri["path"];
-        } else {
-            $uri = $_SERVER["REQUEST_SCHEME"]."://".$_SERVER["HTTP_HOST"].($_SERVER["SERVER_PORT"] != "80" ? $_SERVER["SERVER_PORT"] : "").$_SERVER["REQUEST_URI"];
-        }
+        $root = $_SERVER["REQUEST_SCHEME"]."://".$_SERVER["HTTP_HOST"].($_SERVER["SERVER_PORT"] != "80" ? $_SERVER["SERVER_PORT"] : "");
+        $uri = parse_url($root.$_SERVER["REQUEST_URI"]);
 
         // path = uri - urlroot
-        $path = self::$urlroot ? str_replace(self::$urlroot, "", $uri) : $_SERVER["REQUEST_URI"];
+        $path = self::$urlroot ? str_replace(self::$urlroot, "", $root.$uri["path"]) : $uri["path"];
 
         // Remove trailing slash, if any
         if (substr($path, -1) == "/") $path = substr($path, 0, -1);
 
         return $path;
     }
-    protected static function error($header, $msg) {
-        header($header);
-        print $msg;
-        exit;
+    protected static function error($code, $msg) {
+        throw new HttpException($msg, $code);
     }
-    protected static function error400($msg) {
-        self::error("HTTP/1.1 400 Bad Request", $msg);
+    protected static function error400($msg = "") {
+        self::error(400, $msg);
     }
-    protected static function error401($type, $realm, $msg, $nonce = "") {
+    protected static function error401($type, $realm, $msg = "", $nonce = "") {
         header("WWW-Authenticate: ".$type." realm=\"".$realm."\"".($nonce ? ",qop=\"auth\",nonce=\"".$nonce."\",opaque=\"".md5($realm)."\"" : ""));
-        self::error("HTTP/1.1 401 Not Authorized", $msg);
+        self::error(401, $msg);
     }
     protected static function error404() {
-        self::error("HTTP/1.1 404 Not Found", "");
+        self::error(404, "");
     }
-    protected static function error500($msg) {
-        self::error("HTTP/1.1 500 Internal Server Error", $msg);
+    protected static function error405() {
+        self::error(405, "");
+    }
+    protected static function error500($msg = "") {
+        self::error(500, $msg);
     }
     protected static function cors($allowed) {
         if (isset($_SERVER["HTTP_ORIGIN"])) {
@@ -184,24 +187,23 @@ abstract class Server implements iServer {
             }
 
             if ($found) {
-                try {
-                    ob_start();
-                    if (is_callable($found)) {
-                        $found($matches);
-                    } else {
-                        if ($context) extract($context);
-                        include $handler;
+                if (is_callable($found)) {
+                    return $found($matches);
+                } else {
+                    if ($context) extract($context);
+                    if (file_exists($found)) {
+                        include $found;
+                        return true;
                     }
-                    ob_end_flush();
-                } catch (Exception $e) {
-                    ob_end_clean();
-                    self::error500($e->getMessage());
                 }
-                exit;
-            } elseif ($method != "OPTIONS") {
-                self::error("HTTP/1.1 405 Method Not Allowed", "");
             }
         }
+    }
+    protected static function sendFile($filepath) {
+        $finfo = finfo_open(FILEINFO_MIME);
+        header("Content-type: ".finfo_file($finfo, $filepath));
+        finfo_close($finfo);
+        readfile($filepath);
     }
     protected static function sendJson($json) {
         header("Vary: Accept", false);
@@ -265,6 +267,30 @@ abstract class Server implements iServer {
         }
 
         self::error401("Digest", $realm, "You need to enter a valid username and password.", $nonce);
+    }
+
+    private static function sendError($code, $msg) {
+        switch($code) {
+        case 400: header("HTTP/1.1 400 Bad Request"); break;
+        case 401: header("HTTP/1.1 401 Not Authorized"); break;
+        case 404: header("HTTP/1.1 404 Not Found"); break;
+        case 405: header("HTTP/1.1 405 Method Not Allowed"); break;
+        case 500: header("HTTP/1.1 500 Internal Server Error"); break;
+        }
+        print $msg;
+    }
+    final public static function run($params) {
+        try {
+            ob_start();
+            static::execute($params);
+            ob_end_flush();
+        } catch (HttpException $e) {
+            ob_end_clean();
+            self::sendError($e->getCode(), $e->getMessage());
+        } catch (Exception $e) {
+            ob_end_clean();
+            self::sendError(500);
+        }
     }
 }
 ?>

@@ -166,7 +166,7 @@ abstract class HttpServer {
             $cb();
         }
     }
-    protected static function ifMatch($pattern, $handlers, $context = null) {
+    protected static function ifMatch($pattern, $handlers) {
         $method = self::method();
 
         // Ignore initial slash in path
@@ -191,7 +191,6 @@ abstract class HttpServer {
                 if (is_callable($found)) {
                     return $found($matches);
                 } else {
-                    if ($context) extract($context);
                     if (file_exists($found)) {
                         include $found;
                         return true;

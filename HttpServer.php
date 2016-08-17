@@ -11,6 +11,7 @@ class HttpException extends Exception {
 
 abstract class HttpServer {
     private static $urlroot;
+    protected static $params;
 
     // Replaces "\uxxxx" sequences by true UTF-8 multibyte characters
     protected static function unicodeSeqtoMb($str) {
@@ -283,9 +284,11 @@ abstract class HttpServer {
         print $msg;
     }
     final public static function run($params) {
+        self::$params = $params;
+
         try {
             ob_start();
-            static::execute($params);
+            static::execute();
             ob_end_flush();
         } catch (HttpException $e) {
             ob_end_clean();

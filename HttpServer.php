@@ -11,6 +11,7 @@ class HttpException extends Exception {
 
 abstract class HttpServer {
     private static $urlroot;
+    private static $routes = array();
 
     // Replaces "\uxxxx" sequences by true UTF-8 multibyte characters
     protected static function unicodeSeqtoMb($str) {
@@ -198,6 +199,17 @@ abstract class HttpServer {
                 }
             }
         }
+    }
+    protected static function addRoute($pattern, $action) {
+        self::$routes[$pattern] = $action;
+    }
+    protected static function route() {
+        $match = false;
+        foreach(self::$routes as $pattern => $action) {
+            $match = self::ifMatch($pattern, $action);
+            if ($match) break;
+        }
+        if (!$match) self::error404();
     }
     protected static function sendFile($filepath) {
         $finfo = finfo_open(FILEINFO_MIME);

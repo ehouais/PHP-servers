@@ -166,7 +166,7 @@ abstract class HttpServer {
             $cb();
         }
     }
-    protected static function ifMatch($pattern, $handlers) {
+    private static function ifMatch($pattern, $handlers) {
         $method = self::method();
 
         // Ignore initial slash in path

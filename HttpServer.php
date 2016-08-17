@@ -189,13 +189,14 @@ abstract class HttpServer {
 
             if ($found) {
                 if (is_callable($found)) {
-                    return $found($matches);
+                    $found($matches);
                 } elseif (file_exists($found)) {
                     include $found;
-                    return true;
                 } else {
                     self:error500();
                 }
+
+                return true;
             }
         }
     }

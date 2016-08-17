@@ -177,21 +177,21 @@ abstract class HttpServer {
         }
         $matches = null;
         if (($pattern == "" && $path == "") || ($pattern && preg_match($pattern, $path, $matches))) {
-            $found = null;
+            $action = null;
 
             foreach ($handlers as $methods => $handler) {
                 $methods = explode(",", strtoupper(str_replace(" ", "", $methods)));
                 if (in_array($method, $methods) || ($method != "OPTIONS" && in_array("*", $methods))) {
-                    $found = $handler;
+                    $action = $handler;
                     break;
                 }
             }
 
-            if ($found) {
-                if (is_callable($found)) {
-                    $found($matches);
-                } elseif (file_exists($found)) {
-                    include $found;
+            if ($action) {
+                if (is_callable($action)) {
+                    $action($matches);
+                } elseif (file_exists($action)) {
+                    include $action;
                 } else {
                     self:error500();
                 }

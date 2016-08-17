@@ -177,6 +177,7 @@ abstract class HttpServer {
         $matches = null;
         if (($pattern == "" && $path == "") || ($pattern && preg_match($pattern, $path, $matches))) {
             $found = null;
+            $matches = array_slice($matches, 1);
 
             foreach ($handlers as $methods => $handler) {
                 $methods = explode(",", strtoupper(str_replace(" ", "", $methods)));
@@ -188,7 +189,7 @@ abstract class HttpServer {
 
             if ($found) {
                 if (is_callable($found)) {
-                    return $found($matches);
+                    return call_user_func_array($found, $matches);
                 } else {
                     if ($context) extract($context);
                     if (file_exists($found)) {

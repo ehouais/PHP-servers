@@ -226,6 +226,10 @@ abstract class HttpServer {
     protected static function sendAsJson($data) {
         self::sendJson(self::toJson($data));
     }
+    protected static function sendCollectionItemAsJson($list, $key) {
+        if (!isset($list[$key])) self::error404();
+        self::sendAsJson($list[$key]);
+    }
     protected static function basicAuth($realm, $validate) {
         if (isset($_SERVER["PHP_AUTH_USER"])) {
             $login = $_SERVER["PHP_AUTH_USER"];

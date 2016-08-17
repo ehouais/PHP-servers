@@ -77,6 +77,9 @@ abstract class HttpServer {
 
         return $result;
     }
+    protected static function removeTrailingSlash($str) {
+        return substr($str, -1) == "/" ? substr($str, 0, -1) : $str;
+    }
 
     protected static function method() {
         return strtoupper($_SERVER["REQUEST_METHOD"]);

@@ -12,6 +12,7 @@ class HttpException extends Exception {
 abstract class HttpServer {
     private static $urlroot;
     protected static $params;
+    private static $routes = array();
 
     // Replaces "\uxxxx" sequences by true UTF-8 multibyte characters
     protected static function unicodeSeqtoMb($str) {
@@ -169,7 +170,7 @@ abstract class HttpServer {
             $cb();
         }
     }
-    protected static function ifMatch($pattern, $handlers, $context = null) {
+    private static function ifMatch($pattern, $handlers) {
         $method = self::method();
 
         // Ignore initial slash in path
@@ -180,29 +181,40 @@ abstract class HttpServer {
         }
         $matches = null;
         if (($pattern == "" && $path == "") || ($pattern && preg_match($pattern, $path, $matches))) {
-            $found = null;
             $matches = $matches ? array_slice($matches, 1) : array();
+            $action = null;
 
             foreach ($handlers as $methods => $handler) {
                 $methods = explode(",", strtoupper(str_replace(" ", "", $methods)));
                 if (in_array($method, $methods) || ($method != "OPTIONS" && in_array("*", $methods))) {
-                    $found = $handler;
+                    $action = $handler;
                     break;
                 }
             }
 
-            if ($found) {
-                if (is_callable($found)) {
-                    return call_user_func_array($found, $matches);
+            if ($action) {
+                if (is_callable($action)) {
+                    call_user_func_array($action, $matches);
+                } elseif (file_exists($action)) {
+                    include $action;
                 } else {
-                    if ($context) extract($context);
-                    if (file_exists($found)) {
-                        include $found;
-                        return true;
-                    }
+                    self:error500();
                 }
+
+                return true;
             }
         }
+    }
+    protected static function addRoute($pattern, $action) {
+        self::$routes[$pattern] = $action;
+    }
+    protected static function route() {
+        $match = false;
+        foreach(self::$routes as $pattern => $action) {
+            $match = self::ifMatch($pattern, $action);
+            if ($match) break;
+        }
+        if (!$match) self::error404();
     }
     protected static function sendFile($filepath) {
         $finfo = finfo_open(FILEINFO_MIME);

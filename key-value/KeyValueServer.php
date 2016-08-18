@@ -42,20 +42,20 @@ class KeyValueServer extends HttpServer {
         });
     }
 
-    public static function execute($params) {
-        self::setRoot($params["urlroot"]);
-        self::$datadir = $params["datadir"];
+    public static function execute() {
+        self::setRoot(self::$params["urlroot"]);
+        self::$datadir = self::$params["datadir"];
 
-        if (isset($params["cors"])) {
-            self::cors($params["cors"]);
+        if (isset(self::$params["cors"])) {
+            self::cors(self::$params["cors"]);
         }
 
-        if (isset($params["accounts"])) {
-            self::digestAuth("realm", uniqid(), $params["accounts"]);
+        if (isset(self::$params["accounts"])) {
+            self::digestAuth("realm", uniqid(), self::$params["accounts"]);
         }
 
-        self::ifMatch("", array(
-            "GET" => function() use ($params) {
+        self::addRoute("", array(
+            "GET" => function() {
                 $uris = array();
                 if ($handle = opendir(self::$datadir)) {
                     while (($entry = readdir($handle)) !== false) {
@@ -81,25 +81,25 @@ class KeyValueServer extends HttpServer {
                 header("Content-Location: ".$uri);
                 return true;
             }
-        ))
+        ));
 
-        || self::ifMatch("@^(.+)@i", array(
-            "GET" => function($matches) { self::getOrHead($matches[1], true); return true; },
-            "HEAD" => function($matches) { self::getOrHead($matches[1], false); return true; },
-            "PUT" => function($matches) {
-                self::writeData($matches[1], self::body());
+        self::addRoute("@^(.+)@i", array(
+            "GET" => function($id) { self::getOrHead($id, true); return true; },
+            "HEAD" => function($id) { self::getOrHead($id, false); return true; },
+            "PUT" => function($id) {
+                self::writeData($id, self::body());
                 header("HTTP/1.1 204 No Content");
                 return true;
             },
-            "DELETE" => function($matches) {
-                $filepath = self::checkFile($matches[1]);
+            "DELETE" => function($id) {
+                $filepath = self::checkFile($id);
                 unlink($filepath);
                 header("HTTP/1.1 204 No Content");
                 return true;
             }
-        ))
+        ));
 
-        || self::error404();
+        self::route();
     }
 }
 ?>

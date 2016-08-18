@@ -11,6 +11,7 @@ class HttpException extends Exception {
 
 abstract class HttpServer {
     private static $urlroot;
+    protected static $params;
 
     // Replaces "\uxxxx" sequences by true UTF-8 multibyte characters
     protected static function unicodeSeqtoMb($str) {
@@ -77,6 +78,9 @@ abstract class HttpServer {
 
         return $result;
     }
+    protected static function removeTrailingSlash($str) {
+        return substr($str, -1) == "/" ? substr($str, 0, -1) : $str;
+    }
 
     protected static function method() {
         return strtoupper($_SERVER["REQUEST_METHOD"]);
@@ -115,7 +119,7 @@ abstract class HttpServer {
 
         return $path;
     }
-    protected static function error($code, $msg) {
+    protected static function error($code, $msg = "") {
         throw new HttpException($msg, $code);
     }
     protected static function error400($msg = "") {
@@ -126,10 +130,10 @@ abstract class HttpServer {
         self::error(401, $msg);
     }
     protected static function error404() {
-        self::error(404, "");
+        self::error(404);
     }
     protected static function error405() {
-        self::error(405, "");
+        self::error(405);
     }
     protected static function error500($msg = "") {
         self::error(500, $msg);
@@ -223,6 +227,10 @@ abstract class HttpServer {
     protected static function sendAsJson($data) {
         self::sendJson(self::toJson($data));
     }
+    protected static function sendCollectionItemAsJson($list, $key) {
+        if (!isset($list[$key])) self::error404();
+        self::sendAsJson($list[$key]);
+    }
     protected static function basicAuth($realm, $validate) {
         if (isset($_SERVER["PHP_AUTH_USER"])) {
             $login = $_SERVER["PHP_AUTH_USER"];
@@ -270,20 +278,23 @@ abstract class HttpServer {
         self::error401("Digest", $realm, "You need to enter a valid username and password.", $nonce);
     }
 
-    private static function sendError($code, $msg) {
+    private static function sendError($code, $msg = "") {
         switch($code) {
         case 400: header("HTTP/1.1 400 Bad Request"); break;
         case 401: header("HTTP/1.1 401 Not Authorized"); break;
         case 404: header("HTTP/1.1 404 Not Found"); break;
         case 405: header("HTTP/1.1 405 Method Not Allowed"); break;
+        case 422: header("HTTP/1.1 422 Unprocessable Entity"); break;
         case 500: header("HTTP/1.1 500 Internal Server Error"); break;
         }
         print $msg;
     }
     final public static function run($params) {
+        self::$params = $params;
+
         try {
             ob_start();
-            static::execute($params);
+            static::execute();
             ob_end_flush();
         } catch (HttpException $e) {
             ob_end_clean();

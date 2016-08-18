@@ -42,20 +42,20 @@ class KeyValueServer extends HttpServer {
         });
     }
 
-    public static function execute($params) {
-        self::setRoot($params["urlroot"]);
-        self::$datadir = $params["datadir"];
+    public static function execute() {
+        self::setRoot(self::$params["urlroot"]);
+        self::$datadir = self::$params["datadir"];
 
-        if (isset($params["cors"])) {
-            self::cors($params["cors"]);
+        if (isset(self::$params["cors"])) {
+            self::cors(self::$params["cors"]);
         }
 
-        if (isset($params["accounts"])) {
-            self::digestAuth("realm", uniqid(), $params["accounts"]);
+        if (isset(self::$params["accounts"])) {
+            self::digestAuth("realm", uniqid(), self::$params["accounts"]);
         }
 
         self::ifMatch("", array(
-            "GET" => function() use ($params) {
+            "GET" => function() {
                 $uris = array();
                 if ($handle = opendir(self::$datadir)) {
                     while (($entry = readdir($handle)) !== false) {

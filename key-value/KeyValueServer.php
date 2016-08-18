@@ -54,7 +54,7 @@ class KeyValueServer extends HttpServer {
             self::digestAuth("realm", uniqid(), $params["accounts"]);
         }
 
-        self::ifMatch("", array(
+        self::addRoute("", array(
             "GET" => function() use ($params) {
                 $uris = array();
                 if ($handle = opendir(self::$datadir)) {
@@ -81,9 +81,9 @@ class KeyValueServer extends HttpServer {
                 header("Content-Location: ".$uri);
                 return true;
             }
-        ))
+        ));
 
-        || self::ifMatch("@^(.+)@i", array(
+        self::addRoute("@^(.+)@i", array(
             "GET" => function($matches) { self::getOrHead($matches[1], true); return true; },
             "HEAD" => function($matches) { self::getOrHead($matches[1], false); return true; },
             "PUT" => function($matches) {
@@ -97,9 +97,9 @@ class KeyValueServer extends HttpServer {
                 header("HTTP/1.1 204 No Content");
                 return true;
             }
-        ))
+        ));
 
-        || self::error404();
+        self::route();
     }
 }
 ?>

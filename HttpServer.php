@@ -181,7 +181,7 @@ abstract class HttpServer {
         $matches = null;
         if (($pattern == "" && $path == "") || ($pattern && preg_match($pattern, $path, $matches))) {
             $found = null;
-            $matches = array_slice($matches, 1);
+            $matches = $matches ? array_slice($matches, 1) : array();
 
             foreach ($handlers as $methods => $handler) {
                 $methods = explode(",", strtoupper(str_replace(" ", "", $methods)));

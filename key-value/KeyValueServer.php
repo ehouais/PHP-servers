@@ -84,15 +84,15 @@ class KeyValueServer extends HttpServer {
         ))
 
         || self::ifMatch("@^(.+)@i", array(
-            "GET" => function($matches) { self::getOrHead($matches[1], true); return true; },
-            "HEAD" => function($matches) { self::getOrHead($matches[1], false); return true; },
-            "PUT" => function($matches) {
-                self::writeData($matches[1], self::body());
+            "GET" => function($id) { self::getOrHead($id, true); return true; },
+            "HEAD" => function($id) { self::getOrHead($id, false); return true; },
+            "PUT" => function($id) {
+                self::writeData($id, self::body());
                 header("HTTP/1.1 204 No Content");
                 return true;
             },
-            "DELETE" => function($matches) {
-                $filepath = self::checkFile($matches[1]);
+            "DELETE" => function($id) {
+                $filepath = self::checkFile($id);
                 unlink($filepath);
                 header("HTTP/1.1 204 No Content");
                 return true;

@@ -107,8 +107,11 @@ abstract class HttpServer {
         return self::$urlroot;
     }
     protected static function path() {
-        // Parse full request URI
-        // I still don't know why some installs generate the $_SERVER["SCRIPT_URI"] entry and others don't...
+        // $_SERVER["REQUEST_SCHEME"] available with Apache 2.4+
+        if (!isset($_SERVER["REQUEST_SCHEME"])) {
+            $_SERVER["REQUEST_SCHEME"] = "http".(isset($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] != "off" ? "s" : "");
+        }
+
         $root = $_SERVER["REQUEST_SCHEME"]."://".$_SERVER["HTTP_HOST"].($_SERVER["SERVER_PORT"] != "80" ? $_SERVER["SERVER_PORT"] : "");
         $uri = parse_url($root.$_SERVER["REQUEST_URI"]);
 

@@ -145,7 +145,7 @@ abstract class HttpServer {
     protected static function cors($allowed) {
         if (isset($_SERVER["HTTP_ORIGIN"])) {
             header("Vary: Origin", false);
-            $domain = str_replace("http://", "", $_SERVER['HTTP_ORIGIN']);
+            $domain = str_replace("@^https?://@", "", $_SERVER['HTTP_ORIGIN']);
             foreach ($allowed as $pattern) {
                 if (preg_match("/".str_replace(array(".", "*"), array("\.", "[^\.]+"), $pattern)."/", $domain, $matches)) {
                     header("Access-Control-Allow-Origin: ".$_SERVER['HTTP_ORIGIN']);

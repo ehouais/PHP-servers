@@ -13,13 +13,12 @@ $params = array(
 */
 class KeyValueServer extends HttpServer {
     private static $datadir;
+    private static $rootPattern = "";
+    private static $valuePattern = "**";
 
     private static function filepath($id) {
         $id = str_replace("/", "_", $id);
         return self::$datadir."/".$id."-".md5($id).".val";
-    }
-    private static function uri($id) {
-        return self::root()."/".str_replace("_", "/", $id);
     }
     private static function writeData($id, $data) {
         if (file_put_contents(self::filepath($id), $data) === false) {
@@ -54,13 +53,13 @@ class KeyValueServer extends HttpServer {
             self::digestAuth("realm", uniqid(), self::$params["accounts"]);
         }
 
-        self::addRoute("", array(
+        self::onMatch(self::$rootPattern, array(
             "GET" => function() {
                 $uris = array();
                 if ($handle = opendir(self::$datadir)) {
                     while (($entry = readdir($handle)) !== false) {
                         if (substr($entry, -4) == ".val") {
-                            $uri = self::uri(substr($entry, 0, strrpos($entry, "-")));
+                            $uri = self::uri(self::$valuePattern, str_replace("_", "/", substr($entry, 0, strrpos($entry, "-"))));
                             $uris[$uri] = filemtime(self::$datadir."/".$entry);
                         }
                     }
@@ -68,38 +67,32 @@ class KeyValueServer extends HttpServer {
                     arsort($uris);
                 }
                 self::sendAsJson(array_keys($uris));
-                return true;
             },
             "POST" => function() {
                 $id = uniqid();
                 writeData($id, self::body());
                 // return URI for newly created resource
-                $uri = uri($id);
+                $uri = self::uri(self::$valuePattern, $id);
                 header("HTTP/1.1 201 Created");
                 header("Access-Control-Expose-Headers: location, content-location");
                 header("Location: ".$uri);
                 header("Content-Location: ".$uri);
-                return true;
             }
         ));
 
-        self::addRoute("@^(.+)@i", array(
+        self::onMatch(self::$valuePattern, array(
             "GET" => function($id) { self::getOrHead($id, true); return true; },
             "HEAD" => function($id) { self::getOrHead($id, false); return true; },
             "PUT" => function($id) {
                 self::writeData($id, self::body());
                 header("HTTP/1.1 204 No Content");
-                return true;
             },
             "DELETE" => function($id) {
                 $filepath = self::checkFile($id);
                 unlink($filepath);
                 header("HTTP/1.1 204 No Content");
-                return true;
             }
         ));
-
-        self::route();
     }
 }
 ?>

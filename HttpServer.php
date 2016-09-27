@@ -12,7 +12,7 @@ class HttpException extends Exception {
 abstract class HttpServer {
     private static $urlroot;
     protected static $params;
-    private static $routes = array();
+    private static $routes;
 
     // Replaces "\uxxxx" sequences by true UTF-8 multibyte characters
     protected static function unicodeSeqtoMb($str) {
@@ -107,8 +107,11 @@ abstract class HttpServer {
         return self::$urlroot;
     }
     protected static function path() {
-        // Parse full request URI
-        // I still don't know why some installs generate the $_SERVER["SCRIPT_URI"] entry and others don't...
+        // $_SERVER["REQUEST_SCHEME"] available with Apache 2.4+
+        if (!isset($_SERVER["REQUEST_SCHEME"])) {
+            $_SERVER["REQUEST_SCHEME"] = "http".(isset($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] != "off" ? "s" : "");
+        }
+
         $root = $_SERVER["REQUEST_SCHEME"]."://".$_SERVER["HTTP_HOST"].($_SERVER["SERVER_PORT"] != "80" ? $_SERVER["SERVER_PORT"] : "");
         $uri = parse_url($root.$_SERVER["REQUEST_URI"]);
 
@@ -142,7 +145,7 @@ abstract class HttpServer {
     protected static function cors($allowed) {
         if (isset($_SERVER["HTTP_ORIGIN"])) {
             header("Vary: Origin", false);
-            $domain = str_replace("http://", "", $_SERVER['HTTP_ORIGIN']);
+            $domain = str_replace("@^https?://@", "", $_SERVER['HTTP_ORIGIN']);
             foreach ($allowed as $pattern) {
                 if (preg_match("/".str_replace(array(".", "*"), array("\.", "[^\.]+"), $pattern)."/", $domain, $matches)) {
                     header("Access-Control-Allow-Origin: ".$_SERVER['HTTP_ORIGIN']);
@@ -170,17 +173,23 @@ abstract class HttpServer {
             $cb();
         }
     }
-    private static function ifMatch($pattern, $handlers) {
+    protected static function onMatch($pattern, $handlers) {
+        self::$routes[] = array($pattern, $handlers);
+    }
+    protected static function test($route) {
         $method = self::method();
 
         // Ignore initial slash in path
         $path = substr(self::path(), 1);
+        list($pattern, $handlers) = $route;
 
         if (!is_array($handlers)) {
             $handlers = array("GET" => $handlers);
         }
+
         $matches = null;
-        if (($pattern == "" && $path == "") || ($pattern && preg_match($pattern, $path, $matches))) {
+        $regexp = "@".str_replace("*", "([^/]+)", str_replace("**", "(.+)", $pattern))."@";
+        if (($pattern == "" && $path == "") || ($pattern && preg_match($regexp, $path, $matches))) {
             $matches = $matches ? array_slice($matches, 1) : array();
             $action = null;
 
@@ -200,21 +209,16 @@ abstract class HttpServer {
                 } else {
                     self:error500();
                 }
-
-                return true;
             }
+
+            return true;
         }
     }
-    protected static function addRoute($pattern, $action) {
-        self::$routes[$pattern] = $action;
-    }
-    protected static function route() {
-        $match = false;
-        foreach(self::$routes as $pattern => $action) {
-            $match = self::ifMatch($pattern, $action);
-            if ($match) break;
-        }
-        if (!$match) self::error404();
+    // uri($pattern, $placeholder1, $placeholder2, ...)
+    protected static function uri() {
+        $args = func_get_args();
+        $path = vsprintf(str_replace(array("**", "*"), "%s", $args[0]), array_slice($args, 1));
+        return self::root().(strlen($path) > 0 && $path[0] != "/" ? "/" : "").$path;
     }
     protected static function sendFile($filepath) {
         $finfo = finfo_open(FILEINFO_MIME);
@@ -306,7 +310,11 @@ abstract class HttpServer {
 
         try {
             ob_start();
+            self::$routes = array();
             static::execute();
+            foreach (self::$routes as $route) {
+                if (self::test($route)) break;
+            }
             ob_end_flush();
         } catch (HttpException $e) {
             ob_end_clean();

@@ -12,6 +12,7 @@ class HttpException extends Exception {
 abstract class HttpServer {
     private static $urlroot;
     protected static $params;
+    private static $routes;
 
     // Replaces "\uxxxx" sequences by true UTF-8 multibyte characters
     protected static function unicodeSeqtoMb($str) {
@@ -173,10 +174,14 @@ abstract class HttpServer {
         }
     }
     protected static function onMatch($pattern, $handlers) {
+        self::$routes[] = array($pattern, $handlers);
+    }
+    protected static function test($route) {
         $method = self::method();
 
         // Ignore initial slash in path
         $path = substr(self::path(), 1);
+        list($pattern, $handlers) = $route;
 
         if (!is_array($handlers)) {
             $handlers = array("GET" => $handlers);
@@ -205,6 +210,8 @@ abstract class HttpServer {
                     self:error500();
                 }
             }
+
+            return true;
         }
     }
     // uri($pattern, $placeholder1, $placeholder2, ...)
@@ -303,7 +310,11 @@ abstract class HttpServer {
 
         try {
             ob_start();
+            self::$routes = array();
             static::execute();
+            foreach (self::$routes as $route) {
+                if (self::test($route)) break;
+            }
             ob_end_flush();
         } catch (HttpException $e) {
             ob_end_clean();

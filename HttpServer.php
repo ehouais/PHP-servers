@@ -12,7 +12,6 @@ class HttpException extends Exception {
 abstract class HttpServer {
     private static $urlroot;
     protected static $params;
-    private static $routes = array();
 
     // Replaces "\uxxxx" sequences by true UTF-8 multibyte characters
     protected static function unicodeSeqtoMb($str) {
@@ -173,7 +172,7 @@ abstract class HttpServer {
             $cb();
         }
     }
-    private static function ifMatch($pattern, $handlers) {
+    protected static function onMatch($pattern, $handlers) {
         $method = self::method();
 
         // Ignore initial slash in path
@@ -182,8 +181,10 @@ abstract class HttpServer {
         if (!is_array($handlers)) {
             $handlers = array("GET" => $handlers);
         }
+
         $matches = null;
-        if (($pattern == "" && $path == "") || ($pattern && preg_match($pattern, $path, $matches))) {
+        $regexp = "@".str_replace("*", "([^/]+)", str_replace("**", "(.+)", $pattern))."@";
+        if (($pattern == "" && $path == "") || ($pattern && preg_match($regexp, $path, $matches))) {
             $matches = $matches ? array_slice($matches, 1) : array();
             $action = null;
 
@@ -203,21 +204,14 @@ abstract class HttpServer {
                 } else {
                     self:error500();
                 }
-
-                return true;
             }
         }
     }
-    protected static function addRoute($pattern, $action) {
-        self::$routes[$pattern] = $action;
-    }
-    protected static function route() {
-        $match = false;
-        foreach(self::$routes as $pattern => $action) {
-            $match = self::ifMatch($pattern, $action);
-            if ($match) break;
-        }
-        if (!$match) self::error404();
+    // uri($pattern, $placeholder1, $placeholder2, ...)
+    protected static function uri() {
+        $args = func_get_args();
+        $path = vsprintf(str_replace(array("**", "*"), "%s", $args[0]), array_slice($args, 1));
+        return self::root().(strlen($path) > 0 && $path[0] != "/" ? "/" : "").$path;
     }
     protected static function sendFile($filepath) {
         $finfo = finfo_open(FILEINFO_MIME);

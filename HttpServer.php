@@ -220,6 +220,12 @@ abstract class HttpServer {
         $path = vsprintf(str_replace(array("**", "*"), "%s", $args[0]), array_slice($args, 1));
         return self::root().(strlen($path) > 0 && $path[0] != "/" ? "/" : "").$path;
     }
+    // Map a collection of objects to URIs
+    protected static function uris($collection, $pattern, $propName = "") {
+        return array_map(function($item) use ($pattern, $propName) {
+            return self::uri($pattern, $propName ? $item[$propName] : $item);
+        }, $collection);
+    }
     protected static function sendFile($filepath) {
         $finfo = finfo_open(FILEINFO_MIME);
         header("Content-type: ".finfo_file($finfo, $filepath));

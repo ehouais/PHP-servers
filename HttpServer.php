@@ -226,12 +226,35 @@ abstract class HttpServer {
             return self::uri($pattern, $propName ? $item[$propName] : $item);
         }, $collection);
     }
+
+    private static $fileexts = array(
+        "js" => "application/javascript",
+        "html" => "text/html",
+        "css" => "text/css",
+        "png" => "image/png",
+        "jpg" => "image/jpg",
+        "ttf" =>  "application/font-woff",
+        "woff" => "application/font-woff",
+        "woff2" => "application/font-woff2",
+        "eot" => "application/vnd.ms-fontobject",
+        "pdf" => "application/pdf",
+    );
+    // Send file contents. The "Content-Type" header is guessed from
+    // * the file extension if present...
+    // * ...or the Fileinfo module heuristics
     protected static function sendFile($filepath) {
-        $finfo = finfo_open(FILEINFO_MIME);
-        header("Content-type: ".finfo_file($finfo, $filepath));
-        finfo_close($finfo);
+        $ext = strtolower(pathinfo($filepath, PATHINFO_EXTENSION));
+        if ($ext && isset(self::$fileexts[$ext])) {
+            $type = self::$fileexts[$ext];
+        } else {
+            $finfo = finfo_open(FILEINFO_MIME);
+            $type = finfo_file($finfo, $filepath);
+            finfo_close($finfo);
+        }
+        header("Content-type: ".$type);
         readfile($filepath);
     }
+
     protected static function sendJson($json) {
         header("Vary: Accept", false);
         $json = self::unicodeSeqtoMb($json);

@@ -243,16 +243,18 @@ abstract class HttpServer {
     // * the file extension if present...
     // * ...or the Fileinfo module heuristics
     protected static function sendFile($filepath) {
-        $ext = strtolower(pathinfo($filepath, PATHINFO_EXTENSION));
-        if ($ext && isset(self::$fileexts[$ext])) {
-            $type = self::$fileexts[$ext];
-        } else {
-            $finfo = finfo_open(FILEINFO_MIME);
-            $type = finfo_file($finfo, $filepath);
-            finfo_close($finfo);
-        }
-        header("Content-type: ".$type);
-        readfile($filepath);
+        self::ifModified(filemtime($filepath), function() use ($filepath) {
+            $ext = strtolower(pathinfo($filepath, PATHINFO_EXTENSION));
+            if ($ext && isset(self::$fileexts[$ext])) {
+                $type = self::$fileexts[$ext];
+            } else {
+                $finfo = finfo_open(FILEINFO_MIME);
+                $type = finfo_file($finfo, $filepath);
+                finfo_close($finfo);
+            }
+            header("Content-type: ".$type);
+            readfile($filepath);
+        });
     }
 
     protected static function sendJson($json) {

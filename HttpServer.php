@@ -246,10 +246,11 @@ abstract class HttpServer {
     // * the file extension if present...
     // * ...or the Fileinfo module heuristics
     protected static function sendFile($filepath) {
-        self::ifModifiedSince(filemtime($filepath), function() use ($filepath) {
+        $fileexts = self::$fileexts;
+        self::ifModifiedSince(filemtime($filepath), function() use ($filepath, $fileexts) {
             $ext = strtolower(pathinfo($filepath, PATHINFO_EXTENSION));
-            if ($ext && isset(self::$fileexts[$ext])) {
-                $type = self::$fileexts[$ext];
+            if ($ext && isset($fileexts[$ext])) {
+                $type = $fileexts[$ext];
             } else {
                 $finfo = finfo_open(FILEINFO_MIME);
                 $type = finfo_file($finfo, $filepath);

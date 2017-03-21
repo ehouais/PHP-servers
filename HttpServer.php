@@ -220,12 +220,47 @@ abstract class HttpServer {
         $path = vsprintf(str_replace(array("**", "*"), "%s", $args[0]), array_slice($args, 1));
         return self::root().(strlen($path) > 0 && $path[0] != "/" ? "/" : "").$path;
     }
-    protected static function sendFile($filepath) {
-        $finfo = finfo_open(FILEINFO_MIME);
-        header("Content-type: ".finfo_file($finfo, $filepath));
-        finfo_close($finfo);
-        readfile($filepath);
+    // Map a collection of objects to URIs
+    protected static function uris($collection, $pattern, $propName = "") {
+        return array_map(function($item) use ($pattern, $propName) {
+            return self::uri($pattern, $propName ? $item[$propName] : $item);
+        }, $collection);
     }
+
+    private static $fileexts = array(
+        "js" => "application/javascript",
+        "html" => "text/html",
+        "css" => "text/css",
+        "png" => "image/png",
+        "jpg" => "image/jpg",
+        "csv" => "text/csv",
+        "tsv" => "text/tab-separated-values",
+        "json" => "application/json",
+        "ttf" =>  "application/font-woff",
+        "woff" => "application/font-woff",
+        "woff2" => "application/font-woff2",
+        "eot" => "application/vnd.ms-fontobject",
+        "pdf" => "application/pdf",
+    );
+    // Send file contents. The "Content-Type" header is guessed from
+    // * the file extension if present...
+    // * ...or the Fileinfo module heuristics
+    protected static function sendFile($filepath) {
+        $fileexts = self::$fileexts;
+        self::ifModifiedSince(filemtime($filepath), function() use ($filepath, $fileexts) {
+            $ext = strtolower(pathinfo($filepath, PATHINFO_EXTENSION));
+            if ($ext && isset($fileexts[$ext])) {
+                $type = $fileexts[$ext];
+            } else {
+                $finfo = finfo_open(FILEINFO_MIME);
+                $type = finfo_file($finfo, $filepath);
+                finfo_close($finfo);
+            }
+            header("Content-type: ".$type);
+            readfile($filepath);
+        });
+    }
+
     protected static function sendJson($json) {
         header("Vary: Accept", false);
         $json = self::unicodeSeqtoMb($json);
